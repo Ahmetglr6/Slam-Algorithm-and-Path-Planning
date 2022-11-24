@@ -1,0 +1,186 @@
+clear all
+close all
+clc
+%%%%%%%%%%%%%%%%%%%% Creating an initial map %%%%%%%%%%%%%%%%%%%%
+%%% It uses for translating the fence vertex coordinates in world
+%%% coordinates to realtive coordinates by subtracting  the MP or XY values
+%%% of bottomleft
+
+Bottomleftoffset = [482157.00 , 4285183.00];
+%%% Vertices of the fence in UTM(First and last vertices are same in order to close the map as polygon) %%%
+
+pointsutm= [482157.000000035, 4285183.00002551
+482157.000000034, 4285191.00002551
+482159.000000035, 4285201.00002551
+482168.000000035, 4285235.00002551
+482194.000000035, 4285273.0000255
+482214.000000034, 4285277.0000255
+482241.000000034, 4285269.00002551
+482264.000000034, 4285206.00002551
+482209.000000034, 4285185.00002552
+482157.000000035, 4285183.00002551];
+fencepoints(:,1)= pointsutm(:,1) - Bottomleftoffset(1,1);
+fencepoints(:,2)= pointsutm(:,2) -Bottomleftoffset(1,2);
+
+% representation os the fencepoints in a simple plot:
+figure
+plot(fencepoints(:,1),fencepoints(:,2),'r')
+axis equal
+
+% creation of the map
+map = occupancyMap(111,108,1);
+
+
+%populate the map with inside and outside points
+for x=1:111
+    for y=1:108
+       in = inpolygon(x,y,fencepoints(:,1),fencepoints(:,2));
+         if in == 1
+                 
+         setOccupancy(map,[x y], 0.01); %%% Fill inside of the fence with the unreachable value %%%
+         else
+           
+         setOccupancy(map,[x y], 0.5); %%% Fill outside of the fence with the inf value(imposible arriving for the mission) %%%
+           
+         end
+    end
+end
+
+%%% Fill in the fence by plotting the line segments connection adjacent
+%%% vertices
+diferenca=diff(fencepoints);
+y=0.01:0.01:1;
+for x=1:9
+    for z=1:length(y)
+        novospontos(z,:)=fencepoints(x,:)+y(z).*diferenca(x,:);
+    end
+    setOccupancy(map,[novospontos(:,1) novospontos(:,2)], 0.9);
+end
+figure
+show(map)
+
+
+%now we have a map with the inside,outside and fence represented lets fill
+%it with scans.
+
+
+% we need the position of lidar in the world:
+
+positionsutm=[482207.1338 4285196.665
+482204.0619 4285209.729
+482203.5397 4285209.453
+482198.3384 4285202.954
+482197.216 4285200.238
+482189.2288 4285198.591
+482182.7034 4285196.312
+482162.9198 4285194.026
+482168.1505 4285207.053
+482172.6385 4285211.833
+482173.1402 4285222.355
+482178.5409 4285239.913
+482182.28 4285246.84
+482199.6119 4285267.053
+482209.2588 4285272.283
+482228.7354 4285266.821
+482234.5935 4285262.259
+482238.0367 4285240.63];
+
+heading = zeros(18,1);
+heading(1) = 100*pi/180;
+% for k=2:22
+% 
+% heading(k) = 100*pi/180;
+% 
+% end
+% for i=1:18
+%     Amplitude_File_Name = strcat("2M",num2str(i),".csv");
+%     amp = readtable(Amplitude_File_Name);
+%     amplitude_data(i) = table2array(amp(1,:));
+%     
+%     
+%     
+% end
+
+
+%lets put the points in the same reference frame:
+relativeutm = positionsutm - Bottomleftoffset;
+
+%now we need lidar points:
+%range_data are the points in a given lidar layer:
+
+layer=32;
+%%% Scanning all files %%%
+for scan_number=1:1
+
+    scan_file_name = strcat("2M",num2str(scan_number),"_Range.csv");
+    ddd = scan_func(scan_file_name,1024, layer);
+    range_data(scan_number, :) = table2array(ddd(1, :));
+    
+end
+
+% writetable(range_data,'all22range_scans.csv');
+
+
+
+% scan_pos = positionsutm(scan_number,:);
+% these are the variables that are going to enter the function:
+
+map_beginning = map;
+map_1st_iteration = fill_scan_into_map(fencepoints,map_beginning,range_data(1,:),relativeutm(1,:),heading(1));
+show(map_1st_iteration);
+
+% map_2nd_iteration = fill_scan_into_map(fencepoints,map_1st_iteration,range_data(2,:),relativeutm(2,:),heading(2));
+% show(map_2nd_iteration);
+% 
+% 
+% map_3rd_iteration = fill_scan_into_map(fencepoints,map_2nd_iteration,range_data(3,:),relativeutm(3,:),heading(3));
+% show(map_3rd_iteration);
+
+%%% fill_scan_into_map %%% 
+
+for scan_number=1:2
+    
+    scan_file_name = strcat("2M",num2str(scan_number),"_Range.csv");
+    ddd = scan_func(scan_file_name,1024, layer);
+    range_data(scan_number, :) = table2array(ddd(1, :));
+    current_map = map_1st_iteration;
+    map(scan_number) = fill_scan_into_map(fencepoints,map_beginning,range_data(scan_number,:),relativeutm(scan_number,:),heading(1));
+    
+end
+
+for i=1:18
+cost(i) = 0;
+end
+
+% current_map = map_1st_iteration;
+[map_previous_iterations,cost] = compute_next_acquisition_point(cost(1),fencepoints,current_map,range_data(scan_number, :),relativeutm(scan_number,:),heading(1));
+
+show(map_previous_iterations);
+cost;
+
+% for i=1:22
+%     last_map(i,:) = fill_scan_into_map(fencepoints,map_1st_iteration,range_data(i,:),relativeutm(i,:),heading(i,:));
+% end
+% 
+% for i=1:22
+%     show(last_map(i,:))
+% end
+
+%%%%%%%%%% PATH PLANNING %%%%%%%%%%
+
+% AccumulatedMap(1) = map_1st_iteration;
+
+% for n=1:22
+% 
+%     AccumulatedMap(n,:) = fill_scan_into_map(fencepoints,AccumulatedMap(n,:),range_data(n,:),relativeutm(n,:),heading(n,:));
+%     [NextPosition(n,:) , NextHeading(n,:) , cost(n,:)] = compute_next_acquisition_point(fencepoints,AccumulatedMap(n,:),range_data(n,:),relativeutm(n,:),heading(n,:));
+% 
+% end
+
+sum_cost = 0;
+
+for scan_number=1:2
+    map(scan_number) = fill_scan_into_map(fencepoints,map_beginning,range_data(scan_number,:),relativeutm(scan_number,:),heading(1));
+    map_previous_iterations(scan_number) = compute_next_acquisition_point(cost,fencepoints,current_map,range_data(scan_number, :),relativeutm(scan_number,:),heading(1));
+    sum_cost = sum_cost + cost;
+end
