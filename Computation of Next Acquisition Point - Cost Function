@@ -1,0 +1,54 @@
+function [cmpt,cost] = compute_next_acquisition_point(cost,fencepoints,current_map,range_matrix,current_position,heading)
+
+cmpt = current_map;
+
+scan_azimuth_length = 1024;
+cellx(1:scan_azimuth_length) = 0;
+celly(1:scan_azimuth_length) = 0;
+
+
+%from each point in lidar layer
+for h = 1:scan_azimuth_length
+
+    %we are going to calculate the positions in the map (x and y positions of 1024 points)
+    number1 = current_position(1);
+    number2 = range_matrix(1,h);
+    number3 = cos((heading + h*2*pi/1024));
+    cellx(h,1) = number1 + number2*number3;
+    
+    number1 = current_position(2);
+    number2 = range_matrix(1,h);
+    number3 = sin((heading + h*2*pi/1024));
+    celly(h,1) = number1 + number2*number3;
+
+    % cellx(h) = scan_pos(1) + range_matrix(1,h)*cos((heading + h*2*pi/1024));
+    % celly(h) = scan_pos(2) + range_matrix(1,h)*sin((heading + h*2*pi/1024));
+
+
+    for a=0.01:0.01:1
+
+        pointp1p2 = current_position + ([cellx(h,1) celly(h,1)] - current_position).*a;
+        %and if they are inside the fence polygon
+        if inpolygon(cellx(h,1),celly(h,1),fencepoints(:,1),fencepoints(:,2))
+
+            %we are painting gray all the free points
+            setOccupancy(cmpt,[pointp1p2(:,1) pointp1p2(:,2)], 0.2);
+
+            %and black the "trees"
+            setOccupancy(cmpt,[cellx(h,1) celly(h,1)], 1);
+
+            
+%             A = norm(current_position - [cellx(h,1) celly(h,1)]);
+            cost = max(sqrt((current_position(:,1) - cellx(h,1)).^2 + (current_position(:,2) - celly(h,1)).^2));
+            cost
+            startPose = [current_position(:,1) current_position(:,2)]; % [meters, meters, radians]
+            
+        end
+    end
+    distance_cost = cost;
+    [M,I] = max(range_matrix);
+    maxx= current_position(1) + range_matrix(I)*cos((heading + I*2*pi/1024));
+    maxy= current_position(2) + range_matrix(I)*sin((heading + I*2*pi/1024));
+    setOccupancy(cmpt , [maxx maxy] , 0.5);
+end
+end
