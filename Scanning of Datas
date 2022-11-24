@@ -1,0 +1,15 @@
+function mx = scan_func(scan_file_name,max_azim,single_elev)
+%    min(azim_range);
+%    max(azim_range);
+%    min(elev_range);
+%    max(elev_range);
+
+    scan_file = readtable(scan_file_name);
+    
+
+    Range = scan_file(single_elev, :);
+    % Amplitude = zeros(1, max_azim);
+
+    mx = Range;
+
+end
