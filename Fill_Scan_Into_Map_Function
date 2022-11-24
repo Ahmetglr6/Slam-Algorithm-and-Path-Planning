@@ -1,0 +1,48 @@
+function after_map = fill_scan_into_map(fencepoints,before_map,range_matrix,scan_pos,heading)
+
+% fencepoints is the vertexes of the fence in relative UTM coordinates. Units: meter
+% before_map is an occupancy_grid structure
+% scan_pos is the position in relative UTM coordinates. Units: meter
+% heading is the orientation relative to the north in clockwise rotation.
+% Units: radian
+% after_map is also an occupancy_grid structure
+
+
+after_map = before_map;
+scan_azimuth_length = 1024;
+cellx(1:scan_azimuth_length) = 0;
+celly(1:scan_azimuth_length) = 0;
+
+%from each point in lidar layer
+for h = 1:scan_azimuth_length
+
+    %we are going to calculate the positions in the map (x and y positions of 1024 points)
+    number1 = scan_pos(1);
+    number2 = range_matrix(1,h);
+    number3 = cos((heading + h*2*pi/1024));
+    cellx(h,1) = number1 + number2*number3;
+
+    number1 = scan_pos(2);
+    number2 = range_matrix(1,h);
+    number3 = sin((heading + h*2*pi/1024));
+    celly(h,1) = number1 + number2*number3;
+
+    % cellx(h) = scan_pos(1) + range_matrix(1,h)*cos((heading + h*2*pi/1024));
+    % celly(h) = scan_pos(2) + range_matrix(1,h)*sin((heading + h*2*pi/1024));
+
+
+    for a=0.01:0.01:1
+
+        pointp1p2 = scan_pos + ([cellx(h,1) celly(h,1)] - scan_pos).*a;
+        %and if they are inside the fence polygon
+        if inpolygon(cellx(h,1),celly(h,1),fencepoints(:,1),fencepoints(:,2))
+
+            %we are painting gray all the free points
+            setOccupancy(after_map,[pointp1p2(:,1) pointp1p2(:,2)], 0.3);
+            %and black the "trees"
+            setOccupancy(after_map,[cellx(h,1) celly(h,1)], 1);
+        
+        end
+    end
+end
+end
