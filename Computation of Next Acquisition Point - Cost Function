@@ -1,6 +1,8 @@
-function [cmpt,cost] = compute_next_acquisition_point(cost,fencepoints,current_map,range_matrix,current_position,heading)
+function [cmpt,cost] = compute_next_acquisition_point(planner,cost,fencepoints,current_map,range_matrix,current_position,heading)
 
 cmpt = current_map;
+
+
 
 scan_azimuth_length = 1024;
 cellx(1:scan_azimuth_length) = 0;
@@ -39,16 +41,39 @@ for h = 1:scan_azimuth_length
 
             
 %             A = norm(current_position - [cellx(h,1) celly(h,1)]);
-            cost = max(sqrt((current_position(:,1) - cellx(h,1)).^2 + (current_position(:,2) - celly(h,1)).^2));
-            cost
+%             cost = max(sqrt((current_position(:,1) - cellx(h,1)).^2 + (current_position(:,2) - celly(h,1)).^2));
+            
+            
             startPose = [current_position(:,1) current_position(:,2)]; % [meters, meters, radians]
             
         end
     end
+      [B,I] = sort(range_matrix,'descend');
+    maxx= current_position(1)+ range_matrix(I(1))*cos((heading + I(1)*2*pi/1024));
+    maxy= current_position(2)+range_matrix(I(1))*sin((heading + I(1)*2*pi/1024));
+   
+   
+    if inpolygon(maxx,maxy,fencepoints(:,1),fencepoints(:,2))
+     
+    else
+       
+        while ~inpolygon(maxx,maxy,fencepoints(:,1),fencepoints(:,2))
+      I(1)=[];
+      B(1)=[];
+      maxx= current_position(1)+ range_matrix(I(1))*cos((heading + I(1)*2*pi/1024));
+      maxy= current_position(2)+ range_matrix(I(1))*sin((heading + I(1)*2*pi/1024));
+     
+        end
+    end
+    goalPose = [maxx maxy];
+    
+    setOccupancy(cmpt,[maxx maxy], 0.5)  
+    plan(planner,[ 108-fix(current_position(2)) fix(current_position(1))],[108-fix(maxy) fix(maxx)]);
+    cost=B(1);
     distance_cost = cost;
-    [M,I] = max(range_matrix);
-    maxx= current_position(1) + range_matrix(I)*cos((heading + I*2*pi/1024));
-    maxy= current_position(2) + range_matrix(I)*sin((heading + I*2*pi/1024));
-    setOccupancy(cmpt , [maxx maxy] , 0.5);
+    
+    
+    
+    
 end
 end
