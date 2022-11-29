@@ -83,7 +83,8 @@ positionsutm=[482207.1338 4285196.665
 482209.2588 4285272.283
 482228.7354 4285266.821
 482234.5935 4285262.259
-482238.0367 4285240.63];
+482238.0367 4285240.63
+482207.8187	4285200.9620]; %23rd pos
 
 heading = zeros(18,1);
 heading(1) = 100*pi/180;
@@ -110,7 +111,7 @@ relativeutm = positionsutm - Bottomleftoffset;
 
 layer=32;
 %%% Scanning all files %%%
-for scan_number=1:1
+for scan_number=2:2
 
     scan_file_name = strcat("2M",num2str(scan_number),"_Range.csv");
     ddd = scan_func(scan_file_name,1024, layer);
@@ -126,7 +127,7 @@ end
 % these are the variables that are going to enter the function:
 
 map_beginning = map;
-map_1st_iteration = fill_scan_into_map(fencepoints,map_beginning,range_data(1,:),relativeutm(1,:),heading(1));
+map_1st_iteration = fill_scan_into_map(fencepoints,map_beginning,range_data(2,:),relativeutm(2,:),heading(1));
 show(map_1st_iteration);
 
 % map_2nd_iteration = fill_scan_into_map(fencepoints,map_1st_iteration,range_data(2,:),relativeutm(2,:),heading(2));
@@ -138,7 +139,7 @@ show(map_1st_iteration);
 
 %%% fill_scan_into_map %%% 
 
-for scan_number=1:2
+for scan_number=2:2
     
     scan_file_name = strcat("2M",num2str(scan_number),"_Range.csv");
     ddd = scan_func(scan_file_name,1024, layer);
@@ -148,39 +149,15 @@ for scan_number=1:2
     
 end
 
-for i=1:18
+for i=1:19
 cost(i) = 0;
 end
+planner = plannerAStarGrid(current_map);
+
 
 % current_map = map_1st_iteration;
-[map_previous_iterations,cost] = compute_next_acquisition_point(cost(1),fencepoints,current_map,range_data(scan_number, :),relativeutm(scan_number,:),heading(1));
+[map_previous_iterations,cost] = compute_next_acquisition_point(planner,cost(1),fencepoints,current_map,range_data(scan_number, :),relativeutm(scan_number,:),heading(1));
 
 show(map_previous_iterations);
-cost;
-
-% for i=1:22
-%     last_map(i,:) = fill_scan_into_map(fencepoints,map_1st_iteration,range_data(i,:),relativeutm(i,:),heading(i,:));
-% end
-% 
-% for i=1:22
-%     show(last_map(i,:))
-% end
-
-%%%%%%%%%% PATH PLANNING %%%%%%%%%%
-
-% AccumulatedMap(1) = map_1st_iteration;
-
-% for n=1:22
-% 
-%     AccumulatedMap(n,:) = fill_scan_into_map(fencepoints,AccumulatedMap(n,:),range_data(n,:),relativeutm(n,:),heading(n,:));
-%     [NextPosition(n,:) , NextHeading(n,:) , cost(n,:)] = compute_next_acquisition_point(fencepoints,AccumulatedMap(n,:),range_data(n,:),relativeutm(n,:),heading(n,:));
-% 
-% end
-
-sum_cost = 0;
-
-for scan_number=1:2
-    map(scan_number) = fill_scan_into_map(fencepoints,map_beginning,range_data(scan_number,:),relativeutm(scan_number,:),heading(1));
-    map_previous_iterations(scan_number) = compute_next_acquisition_point(cost,fencepoints,current_map,range_data(scan_number, :),relativeutm(scan_number,:),heading(1));
-    sum_cost = sum_cost + cost;
-end
+show(planner);
+keyboard
