@@ -1,0 +1,205 @@
+clear all
+close all
+clc
+
+Bottomleftoffset = [482157.00 , 4285183.00];
+pointsutm= [482157.000000035, 4285183.00002551
+
+482157.000000034, 4285191.00002551
+482159.000000035, 4285201.00002551
+482168.000000035, 4285235.00002551
+482194.000000035, 4285273.0000255
+482214.000000034, 4285277.0000255
+482241.000000034, 4285269.00002551
+482264.000000034, 4285206.00002551
+482209.000000034, 4285185.00002552
+482157.000000035, 4285183.00002551];
+
+pontoszero(:,1)= pointsutm(:,1) - min(pointsutm(:,1));
+pontoszero(:,2)= pointsutm(:,2) - min(pointsutm(:,2));
+
+positionsutm=[482207.1338	4285196.665
+482204.0619	4285209.729
+482203.5397	4285209.453
+482198.3384	4285202.954
+482197.216	4285200.238
+482189.2288	4285198.591
+482182.7034	4285196.312
+482162.9198	4285194.026
+482168.1505	4285207.053
+482172.6385	4285211.833
+482173.1402	4285222.355
+482178.5409	4285239.913
+482182.28	4285246.84
+482199.6119	4285267.053
+482209.2588	4285272.283
+482228.7354	4285266.821
+482234.5935	4285262.259
+482238.0367	4285240.63
+482236.0333	4285232.276
+482248.1421	4285230.362
+482256.9549	4285211.959
+482257.517	4285217.284];
+
+% map with fence and trajectory between consecutive acquisition locations
+figure
+
+plot(positionsutm(:,1)-min(pointsutm(:,1)),positionsutm(:,2)-min(pointsutm(:,2)))
+hold on
+
+plot(pontoszero(:,1),pontoszero(:,2),'r')
+axis equal
+
+putm = [482207.133810721 , 4285196.66461635 ; 482204.0619 , 4285209.729 ; 482203.5397 , 4285209.453 ;482198.3384 , 4285202.954 ; 482197.216 , 4285200.238 ;
+    482189.2288 , 4285198.591 ; 482182.7034 , 4285196.312 ; 482162.9198	4285194.026 ; 482168.1505 , 4285207.053 ; 482172.6385 , 4285211.833 ; 482173.1402 , 4285222.355 ;
+    482178.5409 , 4285239.913 ; 482182.28 , 4285246.84 ; 482199.6119 , 4285267.053 ; 482209.2588 , 4285272.283 ; 482228.7354 , 4285266.821 ; 482234.5935 , 4285262.259 ;
+    482238.0367 , 4285240.63 ; 482236.0333 , 4285232.276 ; 482248.1421 , 4285230.362 ; 482256.9549 , 4285211.959 ; 482257.517 , 4285217.284];
+putm2 = [482233.33 4285250.00];
+
+% tx = txsite('Name','P1','Latitude',48.133810721,'Longitude',42.66461635);
+% rx = rxsite('Name','P2','Latitude',48.0619,'Longitude',42.729);
+% 
+% dme = distance(tx,rx);
+% 
+% dkm = dme / 1000;
+
+%Scan_positions
+%scan_pos = [482207.133810721 , 4285196.66461635 ; 482233.33 4285250.00];
+
+scan_pos = positionsutm - Bottomleftoffset;
+rutm = putm - Bottomleftoffset;
+
+P1(:,1)= putm(:,1);
+P1(:,2)= putm(:,2);
+
+map = occupancyMap(111,108,1);
+setOccupancy(map,[pontoszero(:,1) pontoszero(:,2)], 0.1);
+
+% setOccupancy(map,[P1(:,1) P1(:,2)], 0.5);
+
+mat = occupancyMatrix(map);
+
+for x=1:111
+
+    for y=1:108
+       in = inpolygon(x,y,pontoszero(:,1),pontoszero(:,2));
+         if in == 1
+          mat(x,y) = -1;
+         
+         setOccupancy(map,[x y], 0.01);
+         else 
+             mat(x,y) = 0;
+            setOccupancy(map,[x y], 0.5);
+            
+         end
+         
+         
+         
+    end
+end
+
+diferenca=diff(pontoszero);
+y=0.01:0.01:1;
+
+for x=1:9
+
+    for z=1:length(y)
+
+novospontos(z,:)=pontoszero(x,:)+y(z).*diferenca(x,:);
+
+    end
+    setOccupancy(map,[novospontos(:,1) novospontos(:,2)], 0.9);
+end
+% show Figure 2 with the fence and the cells of the map filled at
+% acquisition points
+
+figure
+setOccupancy(map,rutm, 0.3); %%% P1 %%%
+show(map);
+
+%%%%%%%%%%% AZIMUTE %%%%%%%%%%%%%
+
+%Number of scans
+
+for scan_number = 1:1
+ 
+    %Opening of scan file
+    scan_file_name = strcat(num2str(scan_number),'.csv');
+    M = importascan(scan_file_name);
+    Range = M(:,1);
+    Azimute = M(:,2);
+    Elevacao = M(:,3);
+    % Range3D = M(:,10);
+    % ReturnNumber = M(:,11);
+    % NumberOfReturns = M(:,12);
+    % ReflectanceDB = M(:,13);
+
+    %change to the number of layers (64) and LiDAR resolution per scan (1024)
+
+    Matriz.Range=zeros(64,1024);
+    %number of layers and azimute resolution
+    NElevacao=unique(Elevacao);
+    intervalos=360/1024;
+    NAzimute=(0:intervalos:360);
+    %delete NaN
+    [ind3,~] = find(isnan(Azimute));
+    Azimute(ind3)=[];
+    Elevacao(ind3)=[];
+    Range(ind3)=[];
+
+    %remove negative values and values greater than 360
+    [ind1,~] = find(Azimute<=0);
+    Azimute(ind1)=Azimute(ind1) + 360;
+    [ind2,~] = find(Azimute>360);
+    Azimute(ind2)=Azimute(ind2)-360;
+
+    %Range Matrix
+
+    for x=1:length(Azimute)
+        coluna=fix(Azimute(x)/intervalos)+1;
+        [ ~, linha ]=min(abs(NElevacao-Elevacao(x)));
+        if coluna==1025
+            coluna=1024;
+        end
+        Matriz.Range(linha,coluna)=Range(x);
+    end
+
+    % csvwrite('M24.csv',Matriz.Range)
+
+    Azimute=deg2rad(Azimute);
+    Elevacao=deg2rad(Elevacao);
+    figure
+    [x,y,z] = sph2cart(Azimute,Elevacao,Range);
+    pcshow([x y z]);     
+    axis equal
+    %plot elevation layer
+    % Figure 2
+    % figure
+    Azimutet=deg2rad(NAzimute(2:end));
+    
+    figure;
+    for camada=32:32
+        Elevacaot=repmat(deg2rad(NElevacao(camada)),1024,1)';
+        Ranget=Matriz.Range(camada,:);
+        [xt,yt,zt] = sph2cart(Azimutet',Elevacaot',Ranget');
+        pcshow([xt yt zt]);
+        hold on
+    end
+
+    Pointformap= [xt,yt,zt];
+    axis equal
+    figure
+    %plot vertical section ("corte")
+    Elevacaov=deg2rad(NElevacao);
+
+    for corte = 80:90
+        Azimutev=repmat(deg2rad(NAzimute(corte)),64,1);
+        Rangev=Matriz.Range(:,corte);
+        [xv,yv,zv] = sph2cart(Azimutev',Elevacaov',Rangev');
+        pcshow([xv' yv' zv']);
+        hold on
+    end
+
+    axis equal
+    Matriz.NElevacao=NElevacao;
+    Matriz.NAzimute=NAzimute;
